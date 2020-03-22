@@ -1,25 +1,143 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Assignment 1"
+author: "Dillon Jaghory"
+date: "March 21, 2020"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+Reproducible Research Project One
+=====================================================
+
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the “quantified self” movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. This assignment will put that data to use and draw insight about how people move!
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+The variables included in this dataset are:
+
+steps: Number of steps taking in a 5-minute interval 
+date: The date on which the measurement was taken in YYYY-MM-DD format
+interval: Identifier for the 5-minute interval in which measurement was taken
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
 
 
+First, I load all the librarys I need, read in all the data and process it.
 
-## What is mean total number of steps taken per day?
+```{r echo=TRUE, results='hide'}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(lattice)
+library(chron)
+```
+
+```{r echo=TRUE}
+movementData <- read.csv("activity.csv")
+
+movementData$timestamp <- as.POSIXct(movementData$date, format="%Y-%m-%d")
+#Adding additional column with date labels minus year, will look better on histogram
+dateLabels <- as.Date(movementData$date, "%Y-%m-%d")
+dateLabels <-format(dateLabels, format="%m-%d")
+movementData <- cbind(movementData, dateLabels)
+```
+
+What is the mean total number of steps?
+
+The mean total number of steps per day is 10,766.19
+The median total number of steps per day is 10,765
+(Remember that missing values have not been removed yet!)
+
+```{r echo=TRUE}
+sums <- aggregate(movementData$steps ~ movementData$date, FUN=sum)
+hist(sums$`movementData$steps`, xlab="Steps (by day)", main="Distribution of Steps Per Day")
+
+#The mean total number of steps per day: 
+mean(sums$`movementData$steps`)
+
+#The median total number of steps per day:
+median(sums$`movementData$steps`)
+```
+
+What is the average daily activity pattern? Lets visualize it!
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps? 
+
+It would appear interval 835 has the maximum number of steps.
+
+```{r echo=TRUE}
+means <- aggregate(movementData$steps ~ movementData$dateLabels, FUN=mean)
+
+intervalMeans <- aggregate(movementData$steps ~ movementData$interval, FUN=mean, na.omit=T)
+
+ggplot(intervalMeans, aes(`movementData$interval`,`movementData$steps`))+ 
+  geom_line(stat="identity", fill="#16c1c4")+
+  theme(axis.text.x = element_text(angle = 45))+
+  ggtitle("Time Series Plot of Mean Steps per interval")+
+  xlab("Interval") + ylab("Steps")
+
+intervalMeans[which.max(intervalMeans$`movementData$steps`),]
+
+```
+
+Let's look at how to solve the problem of missing values.
+It would seem that 2304 rows have missing values. Quite the problem!
+I opted to impute the missing values by using the mean for the corresponding interval.
+I put the data with imputed values into a new dataset called completeData.
+The new values for the mean and median of total number of steps per day are both 10766.19, which isn't very different. This seems to make sense, since the mean values used to impute missing data reinforce trends in the original dataset.
+```{r echo=TRUE}
+sum(is.na(movementData$steps))
+
+completeData <- movementData
+for (row in 1:nrow(completeData)) {
+  if(is.na(completeData$steps[row]) == T) {
+    completeData$steps[row] <- intervalMeans$`movementData$steps`[intervalMeans$`movementData$interval` == completeData$interval[row]]
+  }
+}
+
+completeSums <- aggregate(completeData$steps ~ completeData$date, FUN=sum)
+
+hist(completeSums$`completeData$steps`, xlab = "Steps", main = "Distribution of Steps per Day (Imputed)")
+
+#The mean total number of steps per day (with imputed values): 
+mean(completeSums$`completeData$steps`)
+
+#The median total number of steps per day (with imputed values):
+median(completeSums$`completeData$steps`)
+
+```
+
+Are there differences in activity patterns between weekdays and weekends?
+I used the chron package to help me tackle this problem. The results are visualized below.
+
+```{r echo=TRUE}
+#Adding in weekdays to dataframe
+completeData$weekday <- weekdays(as.Date(completeData$date))
+completeData$weekendOrNot <- chron::is.weekend(as.Date(completeData$date))
+
+weekdayData <- subset(completeData, completeData$weekendOrNot == F)
+weekendData <- subset(completeData, completeData$weekendOrNot == T)
+
+weekdayIntMeans <- aggregate(weekdayData$steps ~ weekdayData$interval, FUN=mean)
+weekdayIntMeans$weekend <- "Weekday"
+names(weekdayIntMeans)[names(weekdayIntMeans) == "weekdayData$interval"] <- "interval"
+names(weekdayIntMeans)[names(weekdayIntMeans) == "weekdayData$steps"] <- "steps"
+
+weekendIntMeans <- aggregate(weekendData$steps ~ weekendData$interval, FUN=mean)
+weekendIntMeans$weekend <- "Weekend"
+names(weekendIntMeans)[names(weekendIntMeans) == "weekendData$interval"] <- "interval"
+names(weekendIntMeans)[names(weekendIntMeans) == "weekendData$steps"] <- "steps"
+
+combinedDailyMeans <- rbind(weekdayIntMeans, weekendIntMeans)
 
 
+p <- ggplot2::ggplot(data=combinedDailyMeans, ggplot2::aes(x= interval, y= steps)) +
+  geom_line()+
+  ggtitle("Average Steps by Interval (Weekdays vs Weekends)")+
+  xlab("Interval") + ylab("Steps")+
+  facet_grid(rows = vars(weekend))
+p
+```
 
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
