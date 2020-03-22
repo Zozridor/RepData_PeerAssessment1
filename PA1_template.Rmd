@@ -32,6 +32,7 @@ library(lubridate)
 library(ggplot2)
 library(lattice)
 library(chron)
+library(knitr)
 ```
 
 ```{r echo=TRUE}
@@ -139,5 +140,6 @@ p <- ggplot2::ggplot(data=combinedDailyMeans, ggplot2::aes(x= interval, y= steps
   xlab("Interval") + ylab("Steps")+
   facet_grid(rows = vars(weekend))
 p
-```
 
+knitr::knit2html("PA1_template.html")
+```
